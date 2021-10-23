@@ -1,0 +1,179 @@
+---
+title: "Assignment-1"
+author: "TarakRam Nunna"
+date: "23/10/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+# install and loading libraries into R envirnment
+```{r}
+library(dplyr)
+library(zoo)
+library(readxl)
+```
+
+# Setting working directory
+```{r}
+getwd()
+setwd("C:/Users/TARAKRAM/OneDrive/Desktop/Business Analytics/Assignment-1")
+```
+# assigning dataset to data frame
+```{r}
+Online_Retail <- read.csv("Online_Retail.csv")
+Online_Retail
+```
+
+# 1. Show the breakdown of the number of transactions by countries i.e. how many transactions are in the dataset for each country (consider all records including cancelled transactions). Show this in total number and also in percentage. Show only countries accounting for more than 1% of the total transactions.
+```{r}
+Online_Retail %>%
+  group_by(Country)%>%
+  summarise(transactions = n())%>%
+  mutate(percentage= (transactions/541909)*100)%>%
+  arrange(desc(transactions))%>%
+  filter(data <- percentage > 1)
+```
+# 2. Create a new variable ‘TransactionValue’ that is the product of the exising ‘Quantity’ and ‘UnitPrice’ variables. Add this variable to the dataframe.
+```{r}
+Online_Retail<- mutate(Online_Retail, "TransactionValue"=TransactionValue<- Online_Retail$Quantity * Online_Retail$UnitPrice)
+colnames(Online_Retail)
+```
+# 3. Using the newly created variable, TransactionValue, show the breakdown of transaction valuesby countries i.e. how much money in total has been spent each country. Show this in total sum of transaction values. Show only countries with total transaction exceeding 130,000 British Pound.
+```{r}
+Online_Retail%>%
+  group_by(Country)%>%
+  summarise(total_sum_of_transaction_values = sum(TransactionValue))%>%
+  arrange(desc(total_sum_of_transaction_values))%>%
+  filter(total_sum_of_transaction_values>130000)
+```
+# 4. optional question which carries additional marks
+```{r}
+# Creates temporary variable that formats transaction date into mm/dd/yyyy format
+Temp=strptime(Online_Retail$InvoiceDate,format='%m/%d/%Y %H:%M',tz='GMT')
+head(Temp)
+
+# Formats the New_Invoice_Date column into a date format from the Temp variable
+Online_Retail$New_Invoice_Date <- as.Date(Temp)
+
+# Example of how dates can be subtracted from each other and return the difference in values
+Online_Retail$New_Invoice_Date[20000]- Online_Retail$New_Invoice_Date[10]
+
+# Convert dates to days of the week and assigns column title to Invoice_Day_Week
+Online_Retail$Invoice_Day_Week= weekdays(Online_Retail$New_Invoice_Date)
+
+# Create a new column with the transaction hour assigned to New_Invoice_Hour
+Online_Retail$New_Invoice_Hour = as.numeric(format(Temp, "%H"))
+
+# Create a new column with the transaction month assigned to New_Invoice_Month
+Online_Retail$New_Invoice_Month = as.numeric(format(Temp, "%m"))
+```
+## a) Show the percentage of transactions (by numbers) by days of the week
+```{r}
+Online_Retail%>%
+  group_by(Invoice_Day_Week)%>%
+  summarise(Number.of.transaction=(n()))%>%
+  mutate(Number.of.transaction,'percent'=(Number.of.transaction*100)/sum(Number.of.transaction))
+```
+## b) Show the percentage of transactions (by transaction volume) by days of the week
+```{r}
+Online_Retail%>%
+  group_by(Invoice_Day_Week)%>%
+  summarise(Volume.of.transaction=(sum(TransactionValue)))%>%
+  mutate(Volume.of.transaction,'percent'=(Volume.of.transaction*100)/sum(Volume.of.transaction))
+```
+## c) Show the percentage of transactions (by transaction volume) by month of the year
+```{r}
+Online_Retail%>%
+  group_by(New_Invoice_Month)%>%
+  summarise(Volume.By.Month=sum(TransactionValue))%>%
+  mutate(Volume.By.Month,'Percent'=(Volume.By.Month*100)/sum(Volume.By.Month))
+```
+## d) What was the date with the highest number of transactions from Australia
+```{r}
+subset(Online_Retail, Country == "Australia") %>%
+  group_by(New_Invoice_Date) %>%
+  summarise(n_transactions = n()) %>%
+  top_n(3)
+```
+## e) The company needs to shut down the website for two consecutive hours for maintenance. What would be the hour of the day to start this so that the distribution is at minimum for the customers? The responsible IT team is available from 7:00 to 20:00 every day.
+```{r}
+Online_Retail %>%
+  group_by(New_Invoice_Hour) %>%
+  summarise(percent_of_transactions = 100*(n()/nrow(Online_Retail))) %>%
+  arrange(percent_of_transactions)
+```
+
+# 5. Plot the histogram of transaction values from Germany. Use the hist() function to plot.
+```{r}
+hist(x=log(Online_Retail$TransactionValue[Online_Retail$Country=="Germany"]),xlab = "LOG TransactionValue",col = 'dark blue' ,main = 'Germany Transaction',ylab = 'Log Frequency')
+```
+
+# 6. Which customer had the highest number of transactions? Which customer is most valuable (i.e. highest total sum of transactions)
+```{r}
+Online_Retail %>%
+  group_by(CustomerID) %>%
+  summarise(n_transactions = n()) %>%
+  top_n(3) %>%
+  arrange(desc(n_transactions))
+Online_Retail %>%
+  group_by(CustomerID) %>%
+  summarise(transaction_sum = sum(TransactionValue)) %>%
+  top_n(3) %>%
+  arrange(desc(transaction_sum))
+```
+
+# 7. Calculate the percentage of missing values for each variable in the dataset.
+```{r}
+# Calculates the percentage of missing values for each variable in the data frame
+colMeans(is.na(Online_Retail))
+```
+
+# 8. What are the number of transactions with missing CustomerID records by countries
+```{r}
+Online_Retail %>%
+  filter(is.na(Online_Retail$CustomerID)) %>%
+  group_by(Country) %>%
+  summarise(n_missing_ID = n()) %>%
+  arrange(desc(n_missing_ID))
+```
+
+# 9. On average, how often the costumers comeback to the website for their next shopping? (i.e. what is the average number of days between consecutive shopping) (Optional/Golden question: 18additional marks!) Hint: 1. A close approximation is also acceptable and you may find diff() function useful.
+```{r}
+# Create a new data frame with all "NA" CustomerID's removed.
+Online_Retail_NA_Removed <- na.omit(Online_Retail)
+# Create a new data frame with cancelled transactions removed.
+Online_Retail_NA_Neg_Removed <- subset(Online_Retail_NA_Removed, Quantity > 0)
+# Create a new data frame that only have customerID and transaction date
+Online_Retail_Subset <- Online_Retail_NA_Neg_Removed[,c("CustomerID","New_Invoice_Date")]
+# Create a new data frame to remove multiple invoices from same customer on same day
+Online_Retail_Subset_Distinct <- distinct(Online_Retail_Subset)
+# Groups data set by CustomerID, arranges them by date, and finds the average time between consecutive transactions for each customer
+# Removes CustomerIDs that result in an NA value (i.e. only have one dinstinct transaction)
+# Summarises the data to find the average time between shopping trips for all CustomerIDs
+Online_Retail_Subset_Distinct %>%
+  group_by(CustomerID) %>%
+  arrange(New_Invoice_Date) %>%
+  summarise(avg = mean(diff(New_Invoice_Date))) %>%
+  na.omit() %>%
+  summarise(avg_days_between_shopping = mean(avg))
+```
+
+# 10. In the retail sector, it is very important to understand the return rate of the goods purchased by customers. In this example, we can define this quantity, simply, as the ratio of the number oftransactions cancelled (regardless of the transaction value) over the total number of transactions. With this definition, what is the return rate for the French customers. Consider the cancelled transactions as those where the ‘Quantity’ variable has a negative value.
+```{r}
+France_Transactions_Cancelled <- subset(Online_Retail, Country == "France" & Quantity < 0)
+France_Transactions <- subset(Online_Retail, Country == "France")
+France_Return_Rate <- 100*(nrow(France_Transactions_Cancelled) / nrow(France_Transactions))
+France_Return_Rate
+```
+# 11. What is the product that has generated the highest revenue for the retailer? (i.e. item with the highest total sum of ‘TransactionValue’).
+```{r}
+Online_Retail %>%
+  group_by(StockCode, Description) %>%
+  summarise(transaction_sum = sum(TransactionValue)) %>%
+  arrange(desc(transaction_sum))
+```
+# 12. How many unique customers are represented in the dataset? You can use unique() and length() functions.
+```{r}
+length(unique(Online_Retail$CustomerID))
+```
